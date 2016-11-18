@@ -1,3 +1,56 @@
+/**
+ * @file mooser.c
+ *
+ * @author Jonathan Weatherspoon, Nico Bernt
+ *
+ * @version 0.81
+ *			Added AddSongs function and global list to store the 
+ *			song names. Setup now adds all possible songs in a random
+ *			order to the cyclical list.
+ *
+ * @version 0.80
+ *			Implemented simple list class as a cyclical playlist style
+ *			data structure. This stops the program from playing the 
+ *			same song more than once in a loop.
+ *
+ * @version 0.75
+ *			Testing has shown that the same file can be played over and 
+ *			over again, needs to be fixed.
+ *
+ * @version 0.70 
+ *			Changed play file function again to no longer use blocking code 
+ *			Main loop now checks to see if file is playing and updates volume 
+ *			if so.
+ *
+ * @version 0.60
+ *			Changed play file function to use blocking code while file
+ *			is playing. 
+ *
+ * @version 0.51
+ *			Added volume control for music. Also changed setup volume to 
+ *			the value read from the teensy audio potentiometer.
+ *
+ * @version 0.50
+ *			Added play file function to take a filename and play that from
+ *			the SD card.
+ *
+ * @version 0.22
+ *			Added functions to generate random file from the sd card
+ *			Time to play some music :)
+ *
+ * @version 0.21
+ *			Added attempt to retry SD card 
+ *
+ * @version 0.20
+ *			Fixed all compiler errors. Time to work on implementation
+ *
+ * @version 0.11
+ *			Added comments to each line to dissect code.
+ *
+ * @version 0.10
+ *			Initial commit. Code sent to me by Nico
+ */
+
 #include <SerialFlash.h>
 
 //Pin Info:
@@ -53,7 +106,7 @@ List songs;
 //The number of LEDs on the visualizer
 #define NUM_LEDS 6
 
-//TODO
+//PWM signal for LED visualizer
 #define DATA_PIN 21
 
 void AddSongs();
@@ -128,12 +181,11 @@ void loop() {
 
 }
 
-void InitializeSongPicks() {
-  for(int i = 0; i < 118; i++) {
-    
-  }
-}
-
+/**
+ * @brief Add all songs to the playlist
+ * @details Add all possible song names in a random order to the global
+ * 			list "songs"
+ */
 void AddSongs() {
   bool songAdded[118] = { 0 };
 
@@ -157,6 +209,11 @@ void AddSongs() {
   }
 }
 
+/**
+ * @brief Create a filename for a song on the SD card
+ * @details Create a c style string between 1.WAV and 118.WAV
+ * @return The random filename
+ * @Note  The filename will have to be deleted with delete[] */
 char *CreateFilename(int num) {
   int fileNum = random(119);
   char *filename = new char[8];
@@ -164,6 +221,12 @@ char *CreateFilename(int num) {
   return filename;
 }
 
+/**
+ * @pre filename should be a valid file. Behavior undefined if not
+ *		valid.
+ * @brief Play the given file
+ * @param filename  The name of the file to play from the SD card
+ */
 void PlayFile(const char *filename) {
   Serial.print("Playing file: ");
   Serial.println(filename);
@@ -188,6 +251,11 @@ void PlayFile(const char *filename) {
   */
 }
 
+/**
+ * @brief Return a color based on the current note
+ * @details Read the current playing note, convert to a color
+ *			and return the color to the program
+ */
 void GetColor() {
   float note = notefreq.read();
   float prob = notefreq.probability();
