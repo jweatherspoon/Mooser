@@ -3,6 +3,10 @@
  *
  * @author Jonathan Weatherspoon, Nico Bernt
  *
+ * @version 0.85
+ *      Still working on LED visualizer algorithm. Added colors.h file to
+ *      choose color from. 
+ *
  * @version 0.84
  *      Changed initial volume back to 0.5, as it isn't the actual volume
  *      But rather the signal volume. Either Get or Set color functions
@@ -82,6 +86,7 @@
 #include <FastLED.h>
 
 #include "list.h"
+#include "colors.h"
 
 // GUItool: begin automatically generated code
 
@@ -110,7 +115,10 @@ AudioConnection          patchCord5(mixer1, notefreq);
 AudioControlSGTL5000     sgtl5000_1;     //xy=302.08570861816406,389.08573150634766
 // GUItool: end automatically generated code
 
+//Contains the songs in a cyclical playlist data structure
 List songs;
+
+float lastNote = 0;
 
 //Define pins needed to read from the SDcard
 #define SDCARD_CS_PIN    10
@@ -132,7 +140,7 @@ void AddSongs();
 char *CreateFilename(int);
 void PlayFile(const char *);
 
-CRGB GetColor();
+CRGB GetColor(float);
 void SetLeds();
 
 CRGB leds[NUM_LEDS];
@@ -190,6 +198,17 @@ void setup() {
 }
 
 void loop() {
+  /*
+  static int col = 0;
+  static const CRGB colors[3] = {CRGB::Blue, CRGB::Green, CRGB::Red};
+  for(int i = 0; i < NUM_LEDS; i++)
+    leds[i] = colors[col];
+  delay(30);
+  FastLED.show();
+  col = (col + 1) % 3;
+  delay(500);
+  */
+  
   if(!playSdWav1.isPlaying()) {
     PlayFile(songs.getCurrent());
     songs.moveCurrent();
@@ -199,7 +218,7 @@ void loop() {
     //Change the color of the LEDS
     SetLeds(GetColor());
   }
-
+  
 }
 
 /**
@@ -278,14 +297,11 @@ void PlayFile(const char *filename) {
  *      and return the color to the program
  * @return A CRGB object containing the converted color.
  */
-CRGB GetColor() {
-  float note = notefreq.read();
-  float prob = notefreq.probability();
-  //Serial.printf("Note: %3.2f | Probability: %.2f\n", note, prob);
-
+CRGB GetColor(float note) {
+  
   //Constrain the note, then map it to a color
   note = constrain(note, 15, 8000);
-  unsigned long code = map(note, 15, 8000, 0x001, 0xFFF);
+  unsigned long code = map(note, 15, 8000, 0x0000, 0x0FFF);
 
   CRGB color(code);
   return color;
