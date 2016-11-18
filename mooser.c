@@ -3,52 +3,66 @@
  *
  * @author Jonathan Weatherspoon, Nico Bernt
  *
+ * @version 0.84
+ *      Changed initial volume back to 0.5, as it isn't the actual volume
+ *      But rather the signal volume. Either Get or Set color functions
+ *      aren't working as intended.
+ *
+ * @version 0.83
+ *      Added constant for number of songs
+ *      
+ * @version 0.82
+ *      GetColor function should now map note to a color
+ *      Added SetLeds function to set all LEDs to a given
+ *      color. GetColor now returns CRGB object. Added code to setup
+ *      which will turn on the relay to give led control to teensy
+ *
  * @version 0.81
- *			Added AddSongs function and global list to store the 
- *			song names. Setup now adds all possible songs in a random
- *			order to the cyclical list.
+ *      Added AddSongs function and global list to store the 
+ *      song names. Setup now adds all possible songs in a random
+ *      order to the cyclical list.
  *
  * @version 0.80
- *			Implemented simple list class as a cyclical playlist style
- *			data structure. This stops the program from playing the 
- *			same song more than once in a loop.
+ *      Implemented simple list class as a cyclical playlist style
+ *      data structure. This stops the program from playing the 
+ *      same song more than once in a loop.
  *
  * @version 0.75
- *			Testing has shown that the same file can be played over and 
- *			over again, needs to be fixed.
+ *      Testing has shown that the same file can be played over and 
+ *      over again, needs to be fixed.
  *
  * @version 0.70 
- *			Changed play file function again to no longer use blocking code 
- *			Main loop now checks to see if file is playing and updates volume 
- *			if so.
+ *      Changed play file function again to no longer use blocking code 
+ *      Main loop now checks to see if file is playing and updates volume 
+ *      if so.
  *
  * @version 0.60
- *			Changed play file function to use blocking code while file
- *			is playing. 
+ *      Changed play file function to use blocking code while file
+ *      is playing. 
  *
  * @version 0.51
- *			Added volume control for music. Also changed setup volume to 
- *			the value read from the teensy audio potentiometer.
+ *      Added volume control for music. Also changed setup volume to 
+ *      the value read from the teensy audio potentiometer.
  *
  * @version 0.50
- *			Added play file function to take a filename and play that from
- *			the SD card.
+ *      Added play file function to take a filename and play that from
+ *      the SD card.
  *
  * @version 0.22
- *			Added functions to generate random file from the sd card
- *			Time to play some music :)
+ *      Added functions to generate random file from the sd card
+ *      Time to play some music :)
  *
  * @version 0.21
- *			Added attempt to retry SD card 
+ *      Added attempt to retry SD card 
  *
  * @version 0.20
- *			Fixed all compiler errors. Time to work on implementation
+ *      Fixed all compiler errors. Time to work on implementation
  *
  * @version 0.11
- *			Added comments to each line to dissect code.
+ *      Added comments to each line to dissect code.
  *
  * @version 0.10
- *			Initial commit. Code sent to me by Nico
+ *      Initial commit. Code sent to me by Nico
  */
 
 #include <SerialFlash.h>
@@ -108,13 +122,18 @@ List songs;
 
 //PWM signal for LED visualizer
 #define DATA_PIN 21
+#define RELAY_PIN 2
+
+//Number of songs on the SD card
+#define NUM_SONGS 118
 
 void AddSongs();
 
 char *CreateFilename(int);
 void PlayFile(const char *);
 
-void GetColor();
+CRGB GetColor();
+void SetLeds();
 
 CRGB leds[NUM_LEDS];
 
@@ -136,7 +155,9 @@ void setup() {
   //  sgt15000_1.audioPostProcessorEnable();
 
   //Set the volume for the audio shield
-  float vol = analogRead(15) / 1024.0;
+  //digitalWrite(15, HIGH);
+  //float vol = analogRead(15) / 1024.0;
+  float vol = 0.5;
   sgtl5000_1.volume(vol);
 
   //Initialize the SD Card for reading
@@ -162,21 +183,21 @@ void setup() {
 
   //Begin detecting frequencies from mixer1 w/ a threshold of allowed uncertainty
   notefreq.begin(.15);
+
+  //Give LED Control to teensy
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH);
 }
 
 void loop() {
-
   if(!playSdWav1.isPlaying()) {
     PlayFile(songs.getCurrent());
     songs.moveCurrent();
-    /*
-    char *filename = CreateFilename(118);
-    PlayFile(filename);
-    delete[] filename;
-    */
   } else {
     float vol = analogRead(15) / 1024.0;
     sgtl5000_1.volume(vol);
+    //Change the color of the LEDS
+    SetLeds(GetColor());
   }
 
 }
@@ -184,16 +205,16 @@ void loop() {
 /**
  * @brief Add all songs to the playlist
  * @details Add all possible song names in a random order to the global
- * 			list "songs"
+ *      list "songs"
  */
 void AddSongs() {
-  bool songAdded[118] = { 0 };
+  bool songAdded[NUM_SONGS] = { 0 };
 
   int randomIndex;
-  for(int i = 0; i < 118; i++) {
+  for(int i = 0; i < NUM_SONGS; i++) {
     //Create a unique number
     while(true) {
-      randomIndex = random(1, 119);
+      randomIndex = random(1, NUM_SONGS + 1);
       if(!songAdded[randomIndex - 1]) {
         songAdded[randomIndex - 1] = true;
         break;
@@ -215,7 +236,7 @@ void AddSongs() {
  * @return The random filename
  * @Note  The filename will have to be deleted with delete[] */
 char *CreateFilename(int num) {
-  int fileNum = random(119);
+  int fileNum = random(NUM_SONGS + 1);
   char *filename = new char[8];
   sprintf(filename, "%i.wav", fileNum);
   return filename;
@@ -223,7 +244,7 @@ char *CreateFilename(int num) {
 
 /**
  * @pre filename should be a valid file. Behavior undefined if not
- *		valid.
+ *    valid.
  * @brief Play the given file
  * @param filename  The name of the file to play from the SD card
  */
@@ -254,13 +275,31 @@ void PlayFile(const char *filename) {
 /**
  * @brief Return a color based on the current note
  * @details Read the current playing note, convert to a color
- *			and return the color to the program
+ *      and return the color to the program
+ * @return A CRGB object containing the converted color.
  */
-void GetColor() {
+CRGB GetColor() {
   float note = notefreq.read();
   float prob = notefreq.probability();
-  Serial.printf("Note: %3.2f | Probability: %.2f\n", note, prob);
-  (note > 50) ? digitalWrite(13, HIGH) : digitalWrite(13, LOW);
+  //Serial.printf("Note: %3.2f | Probability: %.2f\n", note, prob);
+
+  //Constrain the note, then map it to a color
+  note = constrain(note, 15, 8000);
+  unsigned long code = map(note, 15, 8000, 0x001, 0xFFF);
+
+  CRGB color(code);
+  return color;
+}
+
+/**
+ * @brief Set all LEDs to the given color
+ * @param color  The CRGB object containing the desired color
+ */
+void SetLeds(CRGB color) {
+  for(int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = color;
+  }
+  FastLED.show();
 }
 
 
