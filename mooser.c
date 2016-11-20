@@ -3,6 +3,12 @@
  *
  * @author Jonathan Weatherspoon, Nico Bernt
  *
+ * @version 0.86
+ *      Playing around with color changing algorithms. Added lastNote / note
+ *      to change led color in colors array based on the current note
+ *      being played. Color will also only change if the current note is at
+ *      least 7 unites different than the previous. 
+ *
  * @version 0.85
  *      Still working on LED visualizer algorithm. Added colors.h file to
  *      choose color from. 
@@ -118,7 +124,7 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=302.08570861816406,389.08573150634
 //Contains the songs in a cyclical playlist data structure
 List songs;
 
-float lastNote = 0;
+float lastNote = 0, note;
 
 //Define pins needed to read from the SDcard
 #define SDCARD_CS_PIN    10
@@ -134,6 +140,9 @@ float lastNote = 0;
 
 //Number of songs on the SD card
 #define NUM_SONGS 118
+
+//Difference between notes before LED change
+#define NOTE_DIFFERENCE 7
 
 void AddSongs();
 
@@ -153,7 +162,7 @@ void setup() {
   //Add the songs to the list
   AddSongs();
   
-  Serial.begin(9600);
+  //Serial.begin(9600);
 
   //Allocate the memory for the audio data
   AudioMemory(30);
@@ -174,7 +183,7 @@ void setup() {
   if (!(SD.begin(SDCARD_CS_PIN))) {
     // stop here, but print a message repetitively
     while (1) {
-      Serial.println("Unable to access the SD card");
+      Serial.printf("Unable to access the SD card");
       delay(500);
 
       //Try to connect to the SD card
@@ -200,15 +209,16 @@ void setup() {
 void loop() {
   /*
   static int col = 0;
-  static const CRGB colors[3] = {CRGB::Blue, CRGB::Green, CRGB::Red};
   for(int i = 0; i < NUM_LEDS; i++)
     leds[i] = colors[col];
   delay(30);
   FastLED.show();
-  col = (col + 1) % 3;
-  delay(500);
-  */
+  col = (col + 1) % NUM_COLORS;
+  delay(100);
   
+  */
+  //delay(5000);
+  Serial.printf("pls");
   if(!playSdWav1.isPlaying()) {
     PlayFile(songs.getCurrent());
     songs.moveCurrent();
@@ -216,8 +226,14 @@ void loop() {
     float vol = analogRead(15) / 1024.0;
     sgtl5000_1.volume(vol);
     //Change the color of the LEDS
-    SetLeds(GetColor());
+    note = notefreq.read();
+    float prob = notefreq.probability();
+    Serial.printf("Note: %3.2f | Probability: %.2f\n", note, prob);
+    if(prob > .75 && ((note > lastNote + NOTE_DIFFERENCE) || note < lastNote - NOTE_DIFFERENCE)) 
+      SetLeds(GetColor(note));
+    delay(30);
   }
+  lastNote = note;
   
 }
 
@@ -268,8 +284,8 @@ char *CreateFilename(int num) {
  * @param filename  The name of the file to play from the SD card
  */
 void PlayFile(const char *filename) {
-  Serial.print("Playing file: ");
-  Serial.println(filename);
+  Serial.printf("Playing file: %s\n", filename);
+  //Serial.println(filename);
   
   playSdWav1.play(filename);
   
@@ -300,11 +316,18 @@ void PlayFile(const char *filename) {
 CRGB GetColor(float note) {
   
   //Constrain the note, then map it to a color
+  /*
   note = constrain(note, 15, 8000);
   unsigned long code = map(note, 15, 8000, 0x0000, 0x0FFF);
 
   CRGB color(code);
   return color;
+  */
+  note = constrain(note, 30, 1000);
+  int index = map(note, 30, 1000, 0, NUM_COLORS - 1);
+  Serial.printf("index: %i\n", index);
+  //int index = random(0, NUM_COLORS);
+  return colors[index];
 }
 
 /**
