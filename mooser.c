@@ -3,6 +3,9 @@
  *
  * @author Jonathan Weatherspoon, Nico Bernt
  *
+ * @version 0.881
+ *      New number of songs (with duplicates removed) is 107.
+ *
  * @version 0.88
  *      Music visualizer now changes to random color if the previous note is
  *      the same as the current. Otherwise, it will change to a color based
@@ -150,7 +153,7 @@ float lastNote = 0, note;
 #define RELAY_PIN 2
 
 //Number of songs on the SD card
-#define NUM_SONGS 118
+#define NUM_SONGS 107
 
 //Difference between notes before LED change
 #define NOTE_DIFFERENCE 5
@@ -265,7 +268,7 @@ void loop() {
       color = GetColor();
 
     SetLeds(color);
-	  
+    
     delay(50);
   }
   lastNote = note;
@@ -347,7 +350,7 @@ CRGB GetColor(float note) {
   
   note = constrain(note, 30, 1000);
   int index = map(note, 30, 1000, 0, NUM_COLORS - 1);  
-	
+  
   return colors[index];
 }
 
