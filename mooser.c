@@ -3,6 +3,17 @@
  *
  * @author Jonathan Weatherspoon, Nico Bernt
  *
+ * @version 0.88
+ *      Music visualizer now changes to random color if the previous note is
+ *      the same as the current. Otherwise, it will change to a color based
+ *      on the current note. Increased NOTE_DIFFERENCE back to 5, which makes 
+ *      the visualizer much more interesting.
+ *
+ * @version 0.87
+ *      Enabled audio post processor on output. Increased speed of visualizer 
+ *      algorithm. Adjusted line in / out voltage on audio shield to maximum
+ *      values. Enabled auto volume, bass boost, and surround sound enable
+ *
  * @version 0.86
  *      Playing around with color changing algorithms. Added lastNote / note
  *      to change led color in colors array based on the current note
@@ -142,7 +153,7 @@ float lastNote = 0, note;
 #define NUM_SONGS 118
 
 //Difference between notes before LED change
-#define NOTE_DIFFERENCE 7
+#define NOTE_DIFFERENCE 5
 
 void AddSongs();
 
@@ -169,12 +180,23 @@ void setup() {
 
   //Enable the sgtl5000 which will send audio data through to the teensy audio shield
   sgtl5000_1.enable();
-  //  sgt15000_1.audioPostProcessorEnable();
+  sgtl5000_1.audioPostProcessorEnable();
+
+  //Set voltages for audio output
+
+  //13 is a 3.16 volt peak to peak line out voltage level
+  sgtl5000_1.lineOutLevel(13);
+  //0 is a 3.12 volt peak to peak line in voltage level
+  sgtl5000_1.lineInLevel(0);  
+
+  sgtl5000_1.enhanceBassEnable();
+  sgtl5000_1.surroundSoundEnable();
+  sgtl5000_1.autoVolumeEnable();
 
   //Set the volume for the audio shield
   //digitalWrite(15, HIGH);
   //float vol = analogRead(15) / 1024.0;
-  float vol = 0.5;
+  float vol = 0.05;
   sgtl5000_1.volume(vol);
 
   //Initialize the SD Card for reading
@@ -215,23 +237,36 @@ void loop() {
   FastLED.show();
   col = (col + 1) % NUM_COLORS;
   delay(100);
-  
   */
-  //delay(5000);
-  Serial.printf("pls");
+  
+  /*
+  int index = random(NUM_COLORS);
+  SetLeds(colors[index]);
+  delay(random(100, 200));
+  */
+
+  static CRGB color, lastColor = CRGB::Black;
+  
   if(!playSdWav1.isPlaying()) {
     PlayFile(songs.getCurrent());
     songs.moveCurrent();
   } else {
-    float vol = analogRead(15) / 1024.0;
-    sgtl5000_1.volume(vol);
     //Change the color of the LEDS
     note = notefreq.read();
     float prob = notefreq.probability();
     Serial.printf("Note: %3.2f | Probability: %.2f\n", note, prob);
-    if(prob > .75 && ((note > lastNote + NOTE_DIFFERENCE) || note < lastNote - NOTE_DIFFERENCE)) 
-      SetLeds(GetColor(note));
-    delay(30);
+
+    if((lastNote < note + NOTE_DIFFERENCE) && (lastNote > note - NOTE_DIFFERENCE))
+      color = GetColor();
+    else
+      color = GetColor(note);
+
+    if(color == lastColor)
+      color = GetColor();
+
+    SetLeds(color);
+	  
+    delay(50);
   }
   lastNote = note;
   
@@ -291,20 +326,15 @@ void PlayFile(const char *filename) {
   
   delay(5);
 
-  /*
-  //Wait for the file to stop playing
-  while(playSdWav1.isPlaying()) {
-    //Volume control
-    float vol = analogRead(15) / 1024.0;
-    sgtl5000_1.volume(vol);
-    
-    //TODO:
-    //  Change LED visualizer
-    if(notefreq.available()) {
-      GetColor(); 
-    }
-  }
-  */
+}
+
+/**
+ * @brief Get a random color
+ * @return a random color from the colors array
+ */
+CRGB GetColor() {
+  int index = random(NUM_COLORS);
+  return colors[index];  
 }
 
 /**
@@ -315,18 +345,9 @@ void PlayFile(const char *filename) {
  */
 CRGB GetColor(float note) {
   
-  //Constrain the note, then map it to a color
-  /*
-  note = constrain(note, 15, 8000);
-  unsigned long code = map(note, 15, 8000, 0x0000, 0x0FFF);
-
-  CRGB color(code);
-  return color;
-  */
   note = constrain(note, 30, 1000);
-  int index = map(note, 30, 1000, 0, NUM_COLORS - 1);
-  Serial.printf("index: %i\n", index);
-  //int index = random(0, NUM_COLORS);
+  int index = map(note, 30, 1000, 0, NUM_COLORS - 1);  
+	
   return colors[index];
 }
 
