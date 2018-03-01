@@ -1,2 +1,4 @@
 # Mooser
-Code for Mooser Musik 1/24 scale train set.
+Code to control Arduino / Teensy based "Mooser Musik" 1/24 scale trainset. 
+
+Client: Hawley MacLean
